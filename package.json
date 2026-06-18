@@ -1,0 +1,22 @@
+{
+  "name": "mikro-orm-populateorderby-pivot-repro",
+  "private": true,
+  "description": "Repro: a sibling relation's populateOrderBy leaks into a M:N pivot load and throws under select-in/balanced (works under joined). Surfaced by the v6->v7 default loadStrategy change.",
+  "scripts": {
+    "start": "vitest run",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@mikro-orm/core": "7.1.4",
+    "@mikro-orm/decorators": "7.1.4",
+    "@mikro-orm/sqlite": "7.1.4",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.0"
+  }
+}
