@@ -3,16 +3,29 @@
 
 ## Describe the bug
 
-A single `find()` / `findOne()` that **populates a many-to-many relation** (loaded via its pivot
-table under the `select-in` or default-v7 `balanced` strategy) **and** passes `populateOrderBy` for a
-**different, sibling** relation throws:
+Take an entity with two relations — a **many-to-many** (`Book.tags`) and a separate **one-to-many**
+(`Book.labels`). Loading it while you **populate `tags`** *and* **order `labels`** throws:
 
-```
-Trying to order by not existing property book_tags.labels
+```ts
+await em.find(Book, {}, {
+  populate: ['tags', 'labels'],
+  populateOrderBy: { labels: { position: 'ASC' } },
+});
+// ❌ Trying to order by not existing property book_tags.labels
 ```
 
-The sibling relation's order-by hint (`labels`) is applied while building the M:N **pivot** sub-query
-(`book_tags`), where that field does not exist.
+Why this happens, step by step:
+
+1. `tags` is many-to-many, so MikroORM loads it with a **separate query against its pivot table
+   `book_tags`** — this is what `select-in` (and the v7-default `balanced`) do. `joined` instead folds
+   the M:N into the main query, which is why `joined` does **not** hit this.
+2. That pivot query is wrongly handed the **`labels` ordering**, which was meant for the `labels`
+   relation, not for `tags`.
+3. The `book_tags` pivot has no `labels` column → it throws
+   `Trying to order by not existing property book_tags.labels`.
+
+In one line: **an `orderBy` meant for one relation leaks into the side-query that loads a _different_
+relation.**
 
 **Root cause:** `AbstractSqlDriver.loadFromPivotTable` builds the pivot sub-query options by spreading
 the parent `...options` (which carries `populateOrderBy`), recomputes `orderBy`, and clears

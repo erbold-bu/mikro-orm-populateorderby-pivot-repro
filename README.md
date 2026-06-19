@@ -5,16 +5,27 @@ Built from the official [`mikro-orm/reproduction`](https://github.com/mikro-orm/
 
 ## The bug
 
-A single `find()` that **populates a many-to-many relation** (loaded via its pivot table under the
-`select-in` / default-v7 `balanced` strategy) **and** passes `populateOrderBy` for a **different,
-sibling** relation throws:
+Take an entity with two relations — a **many-to-many** (`Book.tags`) and a separate **one-to-many**
+(`Book.labels`). Loading it while you **populate `tags`** *and* **order `labels`** throws:
 
-```
-Trying to order by not existing property book_tags.labels
+```ts
+await em.find(Book, {}, {
+  populate: ['tags', 'labels'],
+  populateOrderBy: { labels: { position: 'ASC' } },
+});
+// ❌ Trying to order by not existing property book_tags.labels
 ```
 
-The sibling relation's order-by hint (`labels`) is applied while building the M:N **pivot** sub-query
-(`book_tags`), where that field does not exist.
+Step by step:
+
+1. `tags` is many-to-many, so MikroORM loads it with a **separate query against its pivot table
+   `book_tags`** — what `select-in` / the v7-default `balanced` do. (`joined` folds the M:N into the
+   main query, so it doesn't hit this.)
+2. That pivot query is wrongly handed the **`labels` ordering** (meant for `labels`, not `tags`).
+3. `book_tags` has no `labels` column → `Trying to order by not existing property book_tags.labels`.
+
+In one line: **an `orderBy` meant for one relation leaks into the side-query that loads a _different_
+relation.**
 
 ## Run
 
